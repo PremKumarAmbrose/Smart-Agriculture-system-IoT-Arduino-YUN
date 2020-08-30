@@ -2,8 +2,8 @@
 #include <DHT_U.h>
 #include <Bridge.h>
 
-#include <YunServer.h>
-#include <YunClient.h>
+#include <BridgeServer.h>
+#include <BridgeClient.h>
 
 #include <Process.h>
 #include <FileIO.h>
@@ -27,8 +27,39 @@
 #define NORMAL_OPERATION_TIME   10
 #define ONE_MINUTE_PAST_MOTOR_ON  30000 // 500 iteration (2 ms each) * 60 secs in a min
 #define ONE_SECOND_MS   1000
+float temp;
+float moist;
+int space=2;
+int first_cycle=1;
+long int time1=0;
+long int time2=0;
 
-YunServer server;
+int email_enabled;
+int maxCalls = 4;
+
+// The number of times e-mail notifications have been run so far in this sketch
+int calls = 0;
+
+int crossed_temp_thresh=0;
+int crossed_moist_thresh=0;
+
+float tThMax;
+float tThMin;
+float smThMax;
+float smThMin;
+
+float tMax=0;
+float tMin=100;
+float smMin=0;
+float smMax=100;
+
+ String dataString;
+ String dataStringSMMax;
+ String dataStringSMMin;
+ String dataStringTMax;
+ String dataStringTMin;
+
+BridgeServer server;
  
 
 typedef enum 
@@ -68,7 +99,37 @@ void setup() {
 
   dht.begin();
   dht.temperature().getSensor(&sensor);
-  dht.humidity().getSensor(&sensor);
+  
+  Serial.begin(9600);
+  Bridge.begin();
+
+  FileSystem.begin();
+  FileSystem.remove("/mnt/sd/arduino/www/sensordata.txt");
+
+  File confFileSpace = FileSystem.open("/mnt/sd/arduino/www/configurespace.txt", FILE_READ);
+  space=confFileSpace.parseInt();
+  confFileSpace.close();
+
+  File confFileEmail = FileSystem.open("/mnt/sd/arduino/www/configureemail.txt", FILE_READ);
+  email_enabled=confFileEmail.parseInt();
+  confFileEmail.close();
+
+  File confFileThresh = FileSystem.open("/mnt/sd/arduino/www/limit.txt", FILE_READ);
+
+  tThMin=confFileThresh.parseFloat();
+  tThMax=confFileThresh.parseFloat();
+  smThMin=confFileThresh.parseFloat();
+  smThMax=confFileThresh.parseFloat();
+
+
+  confFileThresh.close();
+
+  dataString += getTimeStamp();
+  dataStringTMax=dataString;
+  dataStringTMin=dataString;
+  dataStringSMMin=dataString;
+  dataStringSMMax=dataString;
+
 
 /* Set delay between sensor readings based on sensor details.
  * This delay will be used to count iterations between readings,
@@ -88,9 +149,32 @@ void setup() {
 
 void loop() {
 
+  BridgeClient client = server.accept();
+
+  if (client) {
+    // Process request
+      String command = client.readStringUntil('/');
+
+
+  // is "param" command?
+  if (command == "param"){
+    paramCommand(client);
+    }
+  if (command=="conf"){
+    confCommand(client);
+    }
+
+    // Close connection and free resources.
+    client.stop();
+  }
+
+
   static working_cycle_t activity = A_CHECK_WATER_TANK;
   static uint8_t current_delay_ms = NORMAL_OPERATION_TIME;
   static boolean reset_dht_waiting_cycles = false;
+
+  String dataString;
+  dataString += getTimeStamp();
   
   switch(activity)
   {
@@ -163,20 +247,79 @@ void loop() {
     float temp;
     field_action_t field_action;
 
-    GetPlantParameters();
-    temp = AcquireTemperature(current_delay_ms, reset_dht_waiting_cycles);
-    humid= AcquireHumidity()
+    temp = AcquireTemperature(current_delay_ms, reset_dht_waiting_cycles); 
+    
+    
     if(true == reset_dht_waiting_cycles)
     {
       reset_dht_waiting_cycles = false;
     }
-    moist = AcquireGroundMoisture();
+
     field_action = ElaborateData(temp, moist);
     TakeFieldAction(field_action);
     activity = A_CHECK_WATER_TANK;
     break;
-  }  
+  }
+  temp = AcquireTemperature(current_delay_ms, reset_dht_waiting_cycles);
+  if(temp>tMax){
+      tMax=temp;
+      dataStringTMax=dataString;
+            }
+    if(temp<tMin){
+      tMin=temp;
+      dataStringTMin=dataString;
+            }
+
+    moist = AcquireGroundMoisture();
+    if(moist>smMax){
+      smMax=moist;
+      dataStringSMMax=dataString;
+            }
+    if(moist<smMin){
+      smMin=moist;
+      dataStringSMMin=dataString;
+            }
+    
+    String tString=String(temp);
+    String smString=String(moist);
+
+    File dataFile = FileSystem.open("/mnt/sd/arduino/www/temphum.txt", FILE_APPEND);
+  
+      // if the file is available, write to it:
+    if (dataFile) {
+      dataFile.print(dataString);
+      dataFile.print("  Temperature= ");
+      dataFile.print(tString);
+      dataFile.print("*C ");
+      dataFile.print("SoilMoisture= ");
+      dataFile.print(smString);
+      dataFile.println("%");
+      dataFile.close();  
   delay(current_delay_ms);
+  GetPlantParameters();
+}
+if(email_enabled==1){ 
+  if (temp<=tThMin || temp>=tThMax) {crossed_temp_thresh++;}
+  if (moist<=smThMin || moist>=smThMax) {crossed_moist_thresh++;}
+    
+    if (calls < maxCalls) {
+      if(crossed_temp_thresh == 3){
+      Serial.println(F("Triggered"));
+      runSendEmail(0x00);
+      
+      calls++;
+      crossed_temp_thresh=0;}
+      
+      if(crossed_moist_thresh == 3){
+        Serial.println(F("Triggered"));
+      runSendEmail(0x01);
+      calls++;
+      crossed_moist_thresh=0;}
+   
+    }else {
+      Serial.println("\nTriggered! Skipping to save smtp calls.");
+    }
+}
 }
 
 
@@ -222,15 +365,14 @@ float AcquireTemperature(uint8_t current_delay_ms, boolean reset_dht_waiting_cyc
   if(0 == sensor_cycle)
   {
     dht.temperature().getEvent(&event);
-    dht.humidity().getEvent(&event);
-    if (isnan(event.temperature)||isnan(event.temperature))
+    
+    if (isnan(event.temperature))
     {
       //tell the website there was a problem with the sensor 
     }
     else
     {
       temp = event.temperature;
-      humid = event.humidity
     }
     sensor_cycle ++;
   }  
@@ -245,8 +387,7 @@ float AcquireTemperature(uint8_t current_delay_ms, boolean reset_dht_waiting_cyc
       sensor_cycle = 0;
     }
   }
-  DHToutput={temp,humid}
-  return DHToutput;
+  return temp;
 }
 
 
@@ -399,5 +540,183 @@ void MotorOn(void)
   {
     step = 0;
   }
+}
+
+String getTimeStamp() {
+  String result;
+  Process time;
+  // date is a command line utility to get the date and the time
+  // in different formats depending on the additional parameter
+  time.begin("date");
+  time.addParameter("+%D-%T");  // parameters: D for the complete date mm/dd/yy
+  //             T for the time hh:mm:ss
+  time.run();  // run the command
+
+  // read the output of the command
+  while (time.available() > 0) {
+    char c = time.read();
+    if (c != '\n')
+      result += c;
+  }
+
+  return result;
+}
+
+
+void paramCommand(BridgeClient client){
+  
+  String parameter = client.readStringUntil('\r'); // continues scanning the URI
+
+
+ /*check if there were any reading errors from sensor*/
+    
+    if (isnan(moist) || isnan(temp)) {
+    client.println("Failed to read from DHT sensor!");
+    return;  }
+    
+  if (parameter == "all"){                  //display both temperature and soilmoisture
+   client.print(F("Temperature= ("));
+   client.print(temp);
+   client.print(F(" +- 0.5)*C  "));
+   
+   client.print(F("SoilMoisture= ("));
+   client.print(moist);
+   client.println(F(" +- 2)%  "));
+  }
+  if (parameter == "temp"){ //display temperature only
+   client.print(F("Temperature= ("));
+   client.print(temp);
+   client.println(F(" +- 0.5)*C  "));
+  }
+  if (parameter == "moist"){  //display soilmoisture only
+   client.print(F("SoilMoisture= ("));
+   client.print(moist);
+   client.println(F(" +- 2)%  "));
+  }
+  
+  
+    if (parameter == "resetStat"){
+      smMin=100;
+      smMax=0;
+      tMin=100;
+      tMax=0;
+      client.println(F("All Statistics have successfully been reset"));
+    }
+  
+    if (parameter == "resetHistory"){
+    FileSystem.remove("/mnt/sd/arduino/www/sensordata.txt");
+    File dataFileReset = FileSystem.open("/mnt/sd/arduino/www/sensordata.txt", FILE_APPEND);  //re-create the file
+    dataFileReset.close(); 
+      client.println(F("History has successfully been reset"));
+    }
+  if(parameter=="stat"){
+    client.print(F("Maximum Temperature= ("));
+   client.print(tMax);
+   client.print(F(" +- 0.5)*C  "));
+   client.println(dataStringTMax);
+   client.print(F("Minimum Temperature= ("));
+   client.print(tMin);
+   client.print(F(" +- 0.5)*C  "));
+   client.println(dataStringTMin);
+   client.print(F("Maximum SoilMoisture= ("));
+   client.print(smMax);
+   client.print(F(" +- 2)%  "));
+   client.println(dataStringSMMax);
+   client.print(F("Minimum SoilMoisture= ("));
+   client.print(smMin);
+   client.print(F(" +- 2)%  "));
+   client.println(dataStringSMMin);
+    }
+  }
+
+  void confCommand(BridgeClient client){
+  String config_command=client.readStringUntil('/');
+  float temptemp;
+  float moisttemp;
+ if(config_command=="email"){
+  FileSystem.remove("/mnt/sd/arduino/www/configureemail.txt");
+  File mail=FileSystem.open("/mnt/sd/arduino/www/configureemail.txt", FILE_WRITE);
+  email_enabled=client.parseInt();
+  mail.print(email_enabled);
+  mail.close();
+  if(email_enabled){
+    calls=0;
+  client.println(F("Email notification has been enabled"));
+  }
+  else{
+    client.println(F("Email notification has been disabled"));
+    }
+  }
+ if(config_command=="space"){
+  FileSystem.remove("/mnt/sd/arduino/www/configurespace.txt");
+  File spaceconf=FileSystem.open("/mnt/sd/arduino/www/configurespace.txt", FILE_APPEND);
+  space=client.parseInt();
+  spaceconf.print(space);
+  spaceconf.close();
+  client.println("Space between values has been set to "+String(space));
+ }
+if(config_command=="read"){
+  String type_config=client.readStringUntil('\r');
+  if(type_config=="space") {client.print(space);}
+  if(type_config=="email") {client.print("Email: "+String(email_enabled));}
+  if(type_config=="json"){
+  client.println("{\"space\":\""+String(space)+"\",\"email\":\""+
+                     String(email_enabled)+"\",\"tmin\":\""+
+                     String(tThMin)+"\",\"tmax\":\""+
+                     String(tThMax)+"\",\"smmin\":\""+
+                     String(smThMin)+"\",\"smmax\":\""+
+                     String(smThMax)+"\"}");
+                     pinMode(13,OUTPUT);
+                     digitalWrite(13,HIGH);
+                     delay(50);
+                     digitalWrite(13,LOW);
+                     }
+  }
+if(config_command=="limit"){
+  String type_limit=client.readStringUntil('/');
+  if(type_limit=="tmin"){tThMin=client.parseFloat();}
+  if(type_limit=="tmax"){tThMax=client.parseFloat();}
+  if(type_limit=="smmin"){smThMin=client.parseFloat();}
+  if(type_limit=="smmax"){smThMax=client.parseFloat();}
+
+  // swap values if user sets lower limit grater then upper limit
+  if(tThMin>tThMax){
+    temptemp=tThMin;
+    tThMin=tThMax;
+    tThMax=temptemp;
+  }
+  if(smThMin>smThMax){
+    moisttemp=smThMin;
+    smThMin=smThMax;
+    smThMax=moisttemp;
+  }
+  
+  FileSystem.remove("/mnt/sd/arduino/www/limit.txt");
+  File limitConf=FileSystem.open("/mnt/sd/arduino/www/limit.txt",FILE_WRITE);
+  limitConf.print(tThMin);
+  limitConf.print('\n');
+  limitConf.print(tThMax);
+  limitConf.print('\n');
+  limitConf.print(smThMin);
+  limitConf.print('\n');
+  limitConf.print(smThMax);
+  limitConf.close();
+}
+}
+
+void runSendEmail(byte paramter) {
+ 
+Serial.println("Running SendAnEmail...");
+ 
+
+
+  Process p;
+  p.begin("python");
+  if(paramter==0x00){
+  p.addParameter("/mnt/sda1/tempnot.py");}
+  if(paramter==0x01){
+    p.addParameter("/mnt/sda1/humnot.py");
+    }
+  p.run();
 }
 
