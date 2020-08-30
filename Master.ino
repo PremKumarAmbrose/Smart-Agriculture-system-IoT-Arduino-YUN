@@ -28,6 +28,9 @@
 #define ONE_MINUTE_PAST_MOTOR_ON  30000 // 500 iteration (2 ms each) * 60 secs in a min
 #define ONE_SECOND_MS   1000
 
+YunServer server;
+ 
+
 typedef enum 
 {
   A_CHECK_WATER_TANK = 0,
