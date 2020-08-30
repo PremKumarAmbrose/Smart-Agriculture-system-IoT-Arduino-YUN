@@ -18,6 +18,7 @@
 #define STEPPER_PIN_6   7
 #define STEPPER_PIN_7   8
 #define WATERPUMP_PIN   9
+
 //#define TEMP_IN   A2
 #define MOIST_IN   A0
 #define LEVEL_IN   A1
