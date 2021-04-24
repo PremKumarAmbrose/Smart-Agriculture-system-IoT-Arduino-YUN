@@ -1,0 +1,29 @@
+/* CSS Document */
+section {
+	padding: 30px 0 50px;
+}
+h3.section-title {
+	margin-bottom: 40px;
+}
+.social-icons {
+	width: 42px;
+	height: 42px;
+	font-size: 18px;
+	background: #444;
+	border-radius: 21px;
+	text-align: center;
+  	padding: 6px 0;
+	line-height: 28px;
+	color: #fff;
+}
+.social-icons:hover, .social-icons:focus {
+	color: #eee;
+	background: #555;
+}
+.card {
+	margin-bottom: 30px;
+}
+#page-footer {
+	padding: 15px 0 10px;
+	font-size: 12px;
+}
