@@ -1,1 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
 
+<head>
+  <!-- Required meta tags -->
+  <title>SmartAgri</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css" integrity="sha384-TX8t27EcRE3e/ihU7zmQxVncDAy5uIKz4rEkgIXeMed4M0jlfIDPvg6uqKI2xXr2" crossorigin="anonymous">
+  <link href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet" integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" crossorigin="anonymous">
+  <!-- Custom CSS styles-->
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.min.js"></script>
+  <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js" integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.min.js" integrity="sha384-w1Q4orYjBQndcko6MimVbzY0tgp4pWB4lZ7lr30WKz0vr/aWKhXdBNmNb5D92v7s" crossorigin="anonymous"></script>
+</head>
+
+
+<body>
+  <header id="page-header" class="sticky-top">
+    <div class="jumbotron jumbotron-fluid mt-n5 mb-5 pt-0 pb-0" style="background-color:rgba(139, 191, 68, 1)">
+      <div class="container text-center" style="background-color:rgba(139, 191, 68, 1)">
+        <h2 class="display-4 pb-3 mb-xl-1 text-light font-weight-normal" style="background-color:rgba(139, 191, 68, 1)">Smart Agricultural System</h2>
+      </div>
+    </div>
+  </header>
+
+  <script type="text/javascript">
+    window.onload=JSONValues;
+      
+    function JSONValues(){
+        server = "/arduino/conf/read/json" + "\r";
+        requ = new XMLHttpRequest();
+        requ.onreadystatechange = JSONAct;
+        requ.open("GET", server, true);
+        requ.send();
+        setTimeout(JSONValues, 1000);
+    }
+
+    function sendlogEmail(){
+          console.log("sending email")
+          server="/arduino/conf/read/sendlog"+"\r";
+          requ1 = new XMLHttpRequest();
+          requ1.open("GET", server, true);
+          requ1.send();
+    }
+              
+    function JSONAct(){
+          var text=requ.responseText;
+          var obj=JSON.parse(text);
+          
+          if((requ.readyState==4)&&(requ.status==200)){
+
+              var waterlevel= obj.WaterLevel;
+              console.log(waterlevel);
+              document.getElementById("temp").innerHTML=obj.Temperature + " °C";
+
+              myFunction_set(waterlevel); 
+              document.getElementById("tminsetdis").innerHTML=obj.tmin + " °C";
+              document.getElementById("tminset").value=parseFloat(obj.tmin);
+
+              document.getElementById("tmaxsetdis").innerHTML=obj.tmax + " °C";
+              document.getElementById("tmaxset").value=parseFloat(obj.tmax);
+  
+              document.getElementById("humi").innerHTML=obj.Humidity + " %";
+              document.getElementById("hminsetdis").innerHTML=obj.hmin + " %";
+              document.getElementById("hminset").value=parseFloat(obj.hmin);
+
+              document.getElementById("hmaxsetdis").innerHTML=obj.hmax + " %";
+              document.getElementById("hmaxset").value=parseFloat(obj.hmax);
+
+              document.getElementById("moist").innerHTML=obj.Moisture + " %";
+              document.getElementById("mminsetdis").innerHTML=obj.mmin + " %";
+              document.getElementById("mminset").value=parseFloat(obj.mmin);
+
+              document.getElementById("mmaxsetdis").innerHTML=obj.mmax + " %";
+              document.getElementById("mmaxset").value=parseFloat(obj.mmax);
+              
+          }
+      }
+
+    function SetLimit(Type, LValue){
+            
+          if(Type=="tmin"){
+              document.getElementById("tminset").value=LValue;
+              document.getElementById("tminsetdis").innerHTML=LValue +" C";
+              }
+          if(Type=="tmax"){
+              document.getElementById("tmaxset").value=LValue;
+              document.getElementById("tmaxsetdis").innerHTML=LValue +" C";
+              }
+          if(Type=="mmin"){
+              document.getElementById("mminset").value=LValue;
+              document.getElementById("mminsetdis").innerHTML=LValue +" %";
+              }
+          if(Type=="mmax"){
+              document.getElementById("mmaxset").value=LValue;
+              document.getElementById("mmaxsetdis").innerHTML=LValue +" %";
+              }
+          if(Type=="hmin"){
+              document.getElementById("hminset").value=LValue;
+              document.getElementById("hminsetdis").innerHTML=LValue +" %";
+              }
+          if(Type=="hmax"){
+              document.getElementById("hmaxset").value=LValue;
+              document.getElementById("hmaxsetdis").innerHTML=LValue +" %";
+              }
+    
+              server="/arduino/conf/limit/" + Type + "/" + LValue;
+              richiesta = new XMLHttpRequest();
+              richiesta.open("GET", server, true);
+              richiesta.send(null);
+    }
+  
+  </script>
+
+
+  <section class="bg-white">
+    <div class="container">
+      <div class="row mt-xl-n1">
+        <div class="col-sm-6 col-md-4 border-0 bg-transparent col col-xl">
+          <div class="card bg-transparent border-0">
+            <div class="card-body bg-transparent text-xl-center pt-xl-0 pb-xl-0 pl-xl-0 pr-xl-0">
+              <div class="contentArea">
+                <select id="select1" class="custom-select mt-xl-1" style="width: 180px; height: 50px" onchange="changeListener()" align="center">
+                  <option value="Grapes">Grapes</option>
+                  <option value="Wheat">Wheat</option>
+                  <option value="Rice">Rice</option>
+                  <option value="Tomato">Tomato</option>
+                  <option value="Potato">Potato</option>
+                </select>
+
+                <script>
+                  function changeListener(){
+                  var crop = document.getElementById("select1").value;
+                  server="/arduino/conf/plant/" + crop + "\r";
+                  rich = new XMLHttpRequest();
+                  rich.open("GET", server, true);
+                  rich.send();
+                  }                
+                </script>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-sm-6 col-md-4 col col-xl">
+          <div class="card border-0 bg-transparent">
+            <div class="card-body text-xl-center pt-xl-0 pb-xl-0 pl-xl-0 pr-xl-0">
+              <select id="select2" class="custom-select mt-xl-1" style="width: 180px; height: 50px" onchange="changeListener2()" align="center">
+                <option value="1">Enable Email</option>
+                <option value="0">Disable Email</option>
+              </select>
+
+              <script>
+                function changeListener2(){
+                var OnOff = document.getElementById("select2").value;
+                server="/arduino/conf/email/" + OnOff;
+                rich = new XMLHttpRequest();
+                rich.open("GET", server, true);
+                rich.send();
+                console.log(OnOff);
+                }
+              </script>
+
+            </div>
+          </div>
+        </div>
+
+        <div class="col-sm-6 col-md-4 col col-xl">
+          <div class="card border-0 bg-transparent">
+            <div class="card-body text-xl-center pt-xl-0 pb-xl-0 pl-xl-0 pr-xl-0">
+              <button id="btn1" class="btn  text-light mt-xl-1" style="background-color:rgba(139, 191, 68, 1)" onclick="sendlogEmail();">Email data&nbsp;<i class="fa fa-envelope-o" style="background-color:rgba(139, 191, 68, 1)"></i></button></div>
+          </div>
+        </div>
+
+        <div class="col-sm-6 col-md-4 col col-xl">
+          <a href="http://192.168.1.73/sd/Sensor_data.txt" download="Sensor_data.txt">
+            <div class="card border-0 bg-transparent">
+              <div class="card-body text-xl-center pt-xl-0 pb-xl-0 pl-xl-0 pr-xl-0">
+                <button id="btn2" class="btn text-light  mt-xl-1" style="background-color:rgba(139, 191, 68, 1)">Download data&nbsp;<i class="fa fa-arrow-circle-o-down"></i>
+                </button></div>
+            </div>
+          </a>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-12 text-center offset-0">
+          <h2 class="section-title">PARAMETERS</h2>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-12 col-sm-6 col-md-4 mt-xl-3">
+          <div class="card_border1">
+            <style>
+              div.card_border1 {
+                border-radius: 10px;
+                border-style: solid;
+                border-color: rgba(139, 191, 68, 0.7);
+              }
+            </style>
+            <style type="text/css">
+              .card {
+                border: 2px solid;
+              }
+            </style>
+            <div class="card-body">
+              <div class="contentArea"></div>
+              <h3 class="card-title text-center">Temperature
+              </h3>
+              <h1 class="card-text text-center font-weight-bolder"><span id="temp" style="font-size:45px"></span></h1>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-md-4 mt-xl-3">
+          <div class="card_border2">
+            <style>
+              div.card_border2 {
+                border-radius: 10px;
+                border-style: solid;
+                border-color: rgba(139, 191, 68, 0.7);
+              }
+            </style>
+            <div class="card-body">
+              <h3 class="card-title text-center">Humidity</h3>
+              <h1 class="card-text font-weight-bolder text-center"><span id="humi" style="font-size:45px"></span>
+              </h1>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-md-4 mt-xl-3">
+          <div class="card_border3">
+            <style>
+              div.card_border3 {
+                border-radius: 10px;
+                border-style: solid;
+                border-color: rgba(139, 191, 68, 0.7);
+              }
+            </style>
+            <div class="card-body">
+              <h3 class="card-title text-center">Moisture</h3>
+              <h1 class="card-text text-center font-weight-bolder"><span id="moist" style="font-size:45px"></span></h1>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-md-4 mt-xl-3">
+          <div class="card_border4">
+            <style>
+              div.card_border4 {
+                border-radius: 10px;
+                border-style: solid;
+                border-color: rgba(139, 191, 68, 0.7);
+              }
+            </style>
+            <div class="card-body text-xl-center">
+              <h5 class="card-title text-center">Limits</h5>
+              <form>
+                <h6 class="card-text text-center font-weight-normal">Temperature minimum:</h6>
+                <input style="width: 165px; height: 10px" id="tminset" min="0" max="80" type="range" value="1" step="0.01" onchange="SetLimit('tmin', this.value);" />
+                <br> <span id="tminsetdis" value="1"></span>
+                <h6 class="card-text text-center font-weight-normal">Temperature maximum:</h6>
+                <input style="width: 165px; height: 10px" id="tmaxset" min="0" max="80" type="range" value="1" step="0.01" onchange="SetLimit('tmax', this.value);" />
+                <br> <span id="tmaxsetdis" value="1"></span>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-md-4 mt-xl-3">
+          <div class="card_border5">
+            <style>
+              div.card_border5 {
+                border-radius: 10px;
+                border-style: solid;
+                border-color: rgba(139, 191, 68, 0.7);
+              }
+            </style>
+            <div class="card-body text-xl-center">
+              <h5 class="card-title text-center">Limits</h5>
+              <form>
+                <h6 class="card-text text-center font-weight-normal">Humidity minimum:</h6>
+                <input style="width: 165px; height: 10px" id="hminset" min="0" max="100" type="range" value="1" step="0.01" onchange="SetLimit('hmin', this.value);" />
+                <br> <span id="hminsetdis" value="1"></span>
+                <h6 class="card-text text-center font-weight-normal">Humidity maximum:</h6>
+                <input style="width: 165px; height: 10px" id="hmaxset" min="0" max="100" type="range" value="1" step="0.01" onchange="SetLimit('hmax', this.value);" />
+                <br> <span id="hmaxsetdis" value="1"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-md-4 mt-xl-3">
+          <div class="card_border6">
+            <style>
+              div.card_border6 {
+                border-radius: 10px;
+                border-style: solid;
+                border-color: rgba(139, 191, 68, 0.7);
+              }
+            </style>
+            <div class="card-body text-xl-center">
+              <h5 class="card-title text-center">Limits</h5>
+              <form>
+                <h6 class="card-text text-center font-weight-normal">Moisture minimum:</h6>
+                <input style="width: 165px; height: 10px" id="mminset" min="0" max="100" type="range" value="1" step="0.01" onchange="SetLimit('mmin', this.value);" />
+                <br> <span id="mminsetdis" value="1"></span>
+                <h6 class="card-text text-center font-weight-normal">Moisture maximum:</h6>
+                <input style="width: 165px; height: 10px" id="mmaxset" min="0" max="100" type="range" value="1" step="0.01" onchange="SetLimit('mmax', this.value);" />
+                <br> <span id="mmaxsetdis" value="1"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-md-4 mt-xl-3">
+          <div class="card_border7" style="max-height: 348px">
+            <style>
+              div.card_border7 {
+                border-radius: 10px;
+                border-style: solid;
+                border-color: rgba(139, 191, 68, 0.7);
+              }
+            </style>
+            <div class="card-body">
+              <h5 class="card-title text-center"></h5>
+              <canvas id="tempChart" style="max-height:310px"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-md-4 mt-xl-3">
+          <div class="card_border8" style="max-height: 348px">
+            <style>
+              div.card_border8 {
+                border-radius: 10px;
+                border-style: solid;
+                border-color: rgba(139, 191, 68, 0.7);
+              }
+            </style>
+            <div class="card-body">
+              <h5 class="card-title text-center"></h5>
+              <canvas id="humiChart" style="max-height:310px"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-md-4 mt-xl-3">
+          <div class="card_border9" style="max-height: 348px">
+            <style>
+              div.card_border9 {
+                border-radius: 10px;
+                border-style: solid;
+                border-color: rgba(139, 191, 68, 0.7);
+              }
+            </style>
+            <div class="card-body">
+              <h5 class="card-title text-center"></h5>
+              <canvas id="moistChart" style="max-height:310px"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        plotchart();
+        async function plotchart(){
+          const data = await getData();
+          const ctx = document.getElementById('tempChart').getContext('2d');
+          const ctx1 = document.getElementById('humiChart').getContext('2d');
+          const ctx2 = document.getElementById('moistChart').getContext('2d');
+          const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: data.hour,
+              datasets: [{
+                label: 'Temperature °C',
+                borderColor: 'rgb(239, 63, 59)',
+                data: data.Tempdata,
+              }]
+            },					
+            options: {
+            maintainAspectRatio: false
+            }
+          });
+          const chart1 = new Chart(ctx1, {
+            type: 'line',
+            data: {
+              labels: data.hour,
+              datasets: [{
+                label: 'Humidity %', 
+                borderColor: 'rgb(49, 223, 128)',
+                data: data.Humidata,
+              }]
+            },					
+            options: {
+            maintainAspectRatio: false
+            }
+          });
+          const chart2 = new Chart(ctx2, {
+            type: 'line',
+            data: {
+              labels: data.hour,
+              datasets: [{
+                label: 'Moisture %',
+                borderColor: 'rgb(35, 181, 252)',
+                data: data.Moistdata,
+              }]
+            },					
+            options: {
+            maintainAspectRatio: false
+            }
+          });
+          setTimeout(plotchart, 10000)
+        }
+        
+        
+        async function getData() {
+          const hour = [];
+          const Tempdata = [];
+          const Humidata=[];
+          const Moistdata=[];   
+          const response = await fetch('log.csv');
+          const data = await response.text();
+          const table = data.split('\n').slice(1);
+
+          table.forEach(elt => {
+            const columns = elt.split(',');
+            const time = columns[0];
+            const temp = columns[1];
+            const humi = columns[2];
+            const moist = columns[3];
+            hour.push(time);
+            Tempdata.push(temp);
+            Humidata.push(humi);
+            Moistdata.push(moist);
+          });
+          return {hour, Tempdata, Humidata, Moistdata};
+        }
+
+      </script>
+
+
+      <div class="row">
+        <div class="col col-xl bg-transparent border-0 mt-xl-3"></div>
+        <div class="col-12 col-sm-6 col-md-4 col-xl mt-xl-3">
+          <div class="card_border10" style="min-height: 445px">
+            <style>
+              div.card_border10 {
+                border-radius: 10px;
+                border-style: solid;
+                border-color: rgba(139, 191, 68, 0.7);
+              }
+            </style>
+            <div class="card-body text-xl-center" style="min-height: 445px">
+              <h5 class="card-title text-center">Water tank level</h5>
+              <figure aria-hidden="true" style="width:120px">
+                <div class="graph" style="width:120px">
+                  <div class="graphBar" style="width:120px"></div>
+                </div>
+              </figure>
+
+              <script>
+                var root = document.querySelector(':root');
+                function myFunction_set(value) {
+                  root.style.setProperty('--level', value+'%' );
+                }
+              </script>
+
+              <span class="screenreader-text">Smiling face with squinting eyes: 10%, grinning face with squinting eyes: 65%, smiling face: 52%, grinning face with smiling eyes: 100%, and grinning face: 92%.</span>
+              <style type="text/css">
+                :root {
+                  --level: 0;
+                }
+
+                .graph {
+                  display: grid;
+                  grid: repeat(10, auto) max-content / max-content repeat(5, auto);
+                  height: 100%;
+                }
+
+                /* graph bars */
+                .graphBar {
+                  grid-row: 1 / -2;
+                  border-radius: 0 0 50% 50% / 0 0 10px 10px;
+                  background: lightblue linear-gradient(to top, blue var(--level), transparent var(--level));
+                  justify-self: center;
+                  width: 45px;
+                  height: 100%;
+                  box-shadow: 0 0 3px lightgrey;
+                }
+
+                .graphBar:nth-of-type(1) {
+                  grid-column: 2;
+                }
+
+                /* graph bar edges */
+                .graphBar::before,
+                .graphBar::after {
+                  display: block;
+                  content: "";
+                  height: 20px;
+                  border-radius: 50% / 10px;
+                }
+
+                .graphBar::before {
+                  margin-top: -10px;
+                  background-color: blue;
+                }
+
+                .graphBar::after {
+                  background-color: darkblue;
+                  position: relative;
+                  top: calc(100% - var(--level) - 20px);
+                }
+
+                /* graph  labels */
+                .graphRowLabel {
+                  margin-top: -0.5em;
+                }
+
+                .graphColumnLabel {
+                  justify-self: center;
+                  margin-top: 6px;
+                  text-shadow: 0 0 2px palegoldenrod;
+                  font-size: 14pt;
+                }
+
+                .graphRowLabel::after {
+                  display: inline-block;
+                  content: "\2000\2000\2014";
+                }
+
+                .graphRowLabel:nth-of-type(1)::after {
+                  content: "\2000\2014";
+                }
+
+                figure {
+                  width: 98vw;
+                  max-width: 350px;
+                  height: 320px;
+                  margin: 60px auto auto auto;
+                }
+
+                figcaption {
+                  text-align: center;
+                  margin-top: 30px;
+                }
+
+                h1 {
+                  text-align: center;
+                  font-size: 14pt;
+                  margin-bottom: 0;
+                }
+
+                .screenreader-text {
+                  display: block;
+                  height: 1px;
+                  width: 1px;
+                  overflow: hidden;
+                }
+              </style>
+            </div>
+          </div>
+        </div>
+        <div class="col col-xl bg-transparent border-0 mt-xl-3">
+        </div>
+      </div>
+    </div>
+    </div>
+  </section>
+  </body>
+
+</html>
