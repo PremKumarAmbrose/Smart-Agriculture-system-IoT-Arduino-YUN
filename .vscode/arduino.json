@@ -1,4 +1,0 @@
-{
-    "board": "arduino:avr:yun",
-    "sketch": "Master.ino"
-}
